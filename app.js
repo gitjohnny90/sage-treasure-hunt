@@ -382,7 +382,7 @@ function renderScanPrep(id) {
         <button class="btn btn-primary scan-cta" onclick="startScan('${stop.id}')">
           <span class="cam-icon">📷</span> Scan QR Code
         </button>
-        <button class="btn btn-link demo-skip" onclick="simulateScan('${stop.id}')">
+        <button class="btn-link scan-skip" onclick="simulateScan('${stop.id}')">
           DEMO ⏩ Skip scan
         </button>
         <p class="scan-helper">Look for a sign like this around camp, then tap to scan.</p>

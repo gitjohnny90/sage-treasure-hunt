@@ -788,8 +788,11 @@ p { line-height: 1.5; }
 }
 .scan-cancel:active { transform: translateX(-50%) scale(0.97); }
 
-/* DEMO skip button on pre-scan page */
-.btn-link.demo-skip {
+/* DEMO skip button on pre-scan page (in-line under Scan QR Code) */
+.scan-skip {
+  display: block;
+  margin: 12px auto 0;
+  padding: 6px 14px;
   background: transparent;
   border: none;
   color: var(--olive);
@@ -797,7 +800,6 @@ p { line-height: 1.5; }
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.08em;
-  margin-top: 8px;
   cursor: pointer;
   text-decoration: underline;
   opacity: 0.7;
