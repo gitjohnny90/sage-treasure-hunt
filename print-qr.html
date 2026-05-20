@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Sage's Hunt — Printable QR Codes</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Nunito:wght@400;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --paper: #F5E6C8;
+      --olive: #5C7A3A;
+      --olive-deep: #3F5825;
+      --wood: #6B4A2B;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 32px;
+      font-family: "Nunito", system-ui, sans-serif;
+      background: var(--paper);
+      color: #222;
+    }
+    h1 {
+      font-family: "Fredoka", sans-serif;
+      font-weight: 700;
+      color: var(--olive-deep);
+      margin: 0 0 4px;
+    }
+    .instr {
+      max-width: 700px;
+      margin: 0 0 24px;
+      font-size: 14px;
+      line-height: 1.5;
+      color: #555;
+    }
+    .controls {
+      margin-bottom: 24px;
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .controls button, .controls a {
+      padding: 10px 18px;
+      background: var(--olive);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font: 600 14px "Nunito", sans-serif;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-block;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+    }
+    .qr-card {
+      background: #fff;
+      border: 2px solid var(--wood);
+      border-radius: 12px;
+      padding: 14px 12px 12px;
+      text-align: center;
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+    .qr-num {
+      font-family: "Fredoka", sans-serif;
+      font-weight: 700;
+      color: var(--olive-deep);
+      font-size: 14px;
+      letter-spacing: 0.04em;
+      margin-bottom: 2px;
+    }
+    .qr-name {
+      font-family: "Fredoka", sans-serif;
+      font-weight: 600;
+      font-size: 15px;
+      line-height: 1.15;
+      margin-bottom: 10px;
+      min-height: 35px;
+      color: #1f1f1f;
+    }
+    .qr-image img,
+    .qr-image canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+      max-width: 200px;
+      margin: 0 auto;
+      image-rendering: pixelated;
+    }
+    .qr-url {
+      margin-top: 8px;
+      font-size: 9px;
+      color: #777;
+      word-break: break-all;
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    }
+    /* Print: cleaner layout, 3 per row, hide controls */
+    @media print {
+      body { background: #fff; padding: 12mm; }
+      .instr, .controls { display: none; }
+      .grid { grid-template-columns: repeat(3, 1fr); gap: 8mm; }
+      .qr-card { border-color: #888; }
+      h1 { margin-bottom: 8mm; }
+    }
+  </style>
+</head>
+<body>
+  <h1>Ranger Sage's Treasure Hunt — Stop QR Codes</h1>
+  <p class="instr">
+    One QR per stop. Print this page (or save as PDF) and tape each QR onto its sign at camp.
+    Scanning with a phone camera opens the app at that stop. The URLs all point to
+    <code>https://gitjohnny90.github.io/sage-treasure-hunt/</code>.
+  </p>
+  <div class="controls">
+    <button onclick="window.print()">Print / Save as PDF</button>
+    <a href="./">← Back to app</a>
+  </div>
+  <div id="grid" class="grid"></div>
+
+  <script src="qrcode-generator.js"></script>
+  <script src="data.js"></script>
+  <script>
+    const BASE = "https://gitjohnny90.github.io/sage-treasure-hunt/";
+    const grid = document.getElementById("grid");
+
+    function makeCard(stop) {
+      const url = `${BASE}#stop/${stop.id}`;
+      const qr = qrcode(0, "M"); // type 0 = auto, error correction M
+      qr.addData(url);
+      qr.make();
+      const imgTag = qr.createImgTag(6, 8); // cellSize=6px, margin=8px
+
+      const card = document.createElement("div");
+      card.className = "qr-card";
+      const numLabel = String(stop.num).match(/^[0-9]+$/) ? `STOP ${stop.num}` : `STOP ${stop.num}`;
+      card.innerHTML = `
+        <div class="qr-num">${numLabel}</div>
+        <div class="qr-name">${stop.name}</div>
+        <div class="qr-image">${imgTag}</div>
+        <div class="qr-url">${url}</div>
+      `;
+      grid.appendChild(card);
+    }
+
+    // Outdoor stops (1-20)
+    OUTDOOR_STOPS.forEach(makeCard);
+    // Commons sub-stops (1A-1F)
+    COMMONS_STOPS.forEach(makeCard);
+  </script>
+</body>
+</html>

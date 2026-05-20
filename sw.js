@@ -2,7 +2,7 @@
 // Strategy: network-first within scope, fall back to cache if offline.
 // On install, pre-cache the shell so first offline visit works.
 
-const CACHE_VERSION = "sage-v2";
+const CACHE_VERSION = "sage-v3";
 const SHELL = [
   "./",
   "./index.html",
@@ -11,6 +11,8 @@ const SHELL = [
   "./data.js",
   "./qr-scanner.js",
   "./jsQR.min.js",
+  "./qrcode-generator.js",
+  "./print-qr.html",
   "./manifest.webmanifest",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
