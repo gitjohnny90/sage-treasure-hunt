@@ -1,0 +1,31 @@
+{
+  "name": "Ranger Sage's Treasure Hunt",
+  "short_name": "Sage's Hunt",
+  "description": "Self-guided treasure hunt around Camp Gunnison with Ranger Sage.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F5E6C8",
+  "theme_color": "#5C7A3A",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
