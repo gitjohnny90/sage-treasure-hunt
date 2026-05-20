@@ -1,8 +1,8 @@
 // Service worker for Ranger Sage's Treasure Hunt.
-// Strategy: cache-first for shell + assets, network-first for HTML (so deploys propagate).
-// Bump CACHE_VERSION whenever the shell file list changes.
+// Strategy: network-first within scope, fall back to cache if offline.
+// On install, pre-cache the shell so first offline visit works.
 
-const CACHE_VERSION = "sage-v1";
+const CACHE_VERSION = "sage-v2";
 const SHELL = [
   "./",
   "./index.html",
@@ -29,15 +29,18 @@ const SHELL = [
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_VERSION).then(cache => cache.addAll(SHELL)).then(() => self.skipWaiting())
+    caches.open(CACHE_VERSION)
+      .then(cache => cache.addAll(SHELL))
+      .then(() => self.skipWaiting())
+      .catch(() => self.skipWaiting())
   );
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE_VERSION).map(k => caches.delete(k)))
-    ).then(() => self.clients.claim())
+    caches.keys()
+      .then(keys => Promise.all(keys.filter(k => k !== CACHE_VERSION).map(k => caches.delete(k))))
+      .then(() => self.clients.claim())
   );
 });
 
@@ -46,31 +49,23 @@ self.addEventListener("fetch", (event) => {
   if (req.method !== "GET") return;
 
   const url = new URL(req.url);
-  const isHTML = req.mode === "navigate" || (req.headers.get("accept") || "").includes("text/html");
+  if (url.origin !== self.location.origin) return; // Don't intercept cross-origin (fonts, etc)
 
-  if (isHTML) {
-    // Network-first for navigations so new deploys show up
-    event.respondWith(
-      fetch(req).then(resp => {
-        const copy = resp.clone();
-        caches.open(CACHE_VERSION).then(c => c.put(req, copy)).catch(() => {});
-        return resp;
-      }).catch(() => caches.match(req).then(c => c || caches.match("./index.html")))
-    );
-    return;
-  }
-
-  // Cache-first for everything else
+  // Network-first: try the live response, fall back to cache when offline.
+  // ignoreSearch so cached "app.js" matches "app.js?v=12345".
   event.respondWith(
-    caches.match(req).then(cached => {
-      if (cached) return cached;
-      return fetch(req).then(resp => {
-        if (resp.ok && url.origin === self.location.origin) {
-          const copy = resp.clone();
-          caches.open(CACHE_VERSION).then(c => c.put(req, copy)).catch(() => {});
-        }
-        return resp;
-      });
-    })
+    fetch(req).then(resp => {
+      if (resp.ok) {
+        const copy = resp.clone();
+        // Cache under the URL stripped of any ?v= query for stable lookup.
+        const stripped = new Request(url.origin + url.pathname);
+        caches.open(CACHE_VERSION).then(c => c.put(stripped, copy)).catch(() => {});
+      }
+      return resp;
+    }).catch(() =>
+      caches.match(req, { ignoreSearch: true }).then(c =>
+        c || (req.mode === "navigate" ? caches.match("./index.html") : Response.error())
+      )
+    )
   );
 });
