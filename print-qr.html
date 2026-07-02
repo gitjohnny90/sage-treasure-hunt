@@ -3,9 +3,8 @@
 <head>
   <meta charset="utf-8">
   <title>Sage's Hunt — Printable QR Codes</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Nunito:wght@400;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="fonts/fonts.css">
+  <link rel="icon" type="image/png" href="icons/icon-192.png">
   <style>
     :root {
       --paper: #F5E6C8;
@@ -119,27 +118,32 @@
     <button onclick="window.print()">Print / Save as PDF</button>
     <a href="./">← Back to app</a>
   </div>
+  <p class="instr" id="version-stamp"></p>
   <div id="grid" class="grid"></div>
 
   <script src="qrcode-generator.js"></script>
-  <script src="data.js"></script>
+  <script src="data.js?v=2026-07-02a"></script>
   <script>
     const BASE = "https://gitjohnny90.github.io/sage-treasure-hunt/";
     const grid = document.getElementById("grid");
 
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+    }
+
     function makeCard(stop) {
       const url = `${BASE}#stop/${stop.id}`;
-      const qr = qrcode(0, "M"); // type 0 = auto, error correction M
+      // Error correction Q holds up better on laminated/weathered outdoor signs.
+      const qr = qrcode(0, "Q");
       qr.addData(url);
       qr.make();
       const imgTag = qr.createImgTag(6, 8); // cellSize=6px, margin=8px
 
       const card = document.createElement("div");
       card.className = "qr-card";
-      const numLabel = String(stop.num).match(/^[0-9]+$/) ? `STOP ${stop.num}` : `STOP ${stop.num}`;
       card.innerHTML = `
-        <div class="qr-num">${numLabel}</div>
-        <div class="qr-name">${stop.name}</div>
+        <div class="qr-num">STOP ${escapeHtml(stop.num)}</div>
+        <div class="qr-name">${escapeHtml(stop.name)}</div>
         <div class="qr-image">${imgTag}</div>
         <div class="qr-url">${url}</div>
       `;
@@ -150,6 +154,11 @@
     OUTDOOR_STOPS.forEach(makeCard);
     // Commons sub-stops (1A-1F)
     COMMONS_STOPS.forEach(makeCard);
+
+    // Stamp each printed generation so staff can tell sheets apart.
+    document.getElementById("version-stamp").textContent =
+      `Sheet generated ${new Date().toLocaleDateString()} — ${ALL_STOPS.length} stops. ` +
+      `If stop names change in the app, reprint this sheet.`;
   </script>
 </body>
 </html>
