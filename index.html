@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#5C7A3A">
   <title>Ranger Sage's Treasure Hunt — Camp Gunnison</title>
 
@@ -14,24 +14,18 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Sage's Hunt">
 
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;600;700;800&family=Patrick+Hand&display=swap" rel="stylesheet">
-  <script>
-    // CSS/JS cache-bust per load so deploys propagate even through edge caches.
-    const _v = Date.now();
-    document.write(`<link rel="stylesheet" href="styles.css?v=${_v}">`);
-    window.__assetVer = _v;
-  </script>
+  <!-- Fonts are self-hosted so the look survives offline / weak signal. -->
+  <link rel="stylesheet" href="fonts/fonts.css?v=2026-07-02a">
+  <link rel="stylesheet" href="styles.css?v=2026-07-02a">
 </head>
 <body>
   <div id="device-frame">
-    <div id="app" role="main" aria-live="polite">
+    <div id="app" role="main">
       <noscript>This treasure hunt needs JavaScript turned on.</noscript>
     </div>
-    <div id="toast-host" aria-live="assertive"></div>
+    <div id="toast-host" role="status" aria-live="polite"></div>
     <div id="confetti-host" aria-hidden="true"></div>
-    <button id="menu-btn" type="button" aria-label="Menu">☰</button>
+    <button id="menu-btn" type="button" aria-label="Menu" aria-controls="menu-panel" aria-expanded="false">☰</button>
     <div id="menu-panel" hidden>
       <button class="menu-item" data-action="map">Back to map</button>
       <button class="menu-item" data-action="reset">Start over</button>
@@ -39,12 +33,10 @@
     </div>
   </div>
 
-  <script>
-    document.write(`<script src="jsQR.min.js?v=${_v}"><\/script>`);
-    document.write(`<script src="qr-scanner.js?v=${_v}"><\/script>`);
-    document.write(`<script src="data.js?v=${_v}"><\/script>`);
-    document.write(`<script src="app.js?v=${_v}"><\/script>`);
-  </script>
+  <script src="jsQR.min.js?v=2026-07-02a"></script>
+  <script src="qr-scanner.js?v=2026-07-02a"></script>
+  <script src="data.js?v=2026-07-02a"></script>
+  <script src="app.js?v=2026-07-02a"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {

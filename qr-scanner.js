@@ -1,11 +1,15 @@
 // Real QR scanner wrapper around jsQR + getUserMedia.
-// Exposes openQrScanner(expectedStopId, callbacks) globally.
-// Falls back to simulated scan if no camera / permission denied / running on file://.
+// Exposes openQrScanner(expectedStopId, callbacks) and closeQrScanner() globally.
+// Reports onUnsupported if no camera / permission denied so the caller can
+// show an honest message (never a fake scan).
 
 (function () {
   "use strict";
 
-  const SCAN_INTERVAL_MS = 100; // jsQR runs ~10x/sec, light enough on phones
+  const SCAN_INTERVAL_MS = 100;   // jsQR runs ~10x/sec
+  const DECODE_MAX_WIDTH = 640;   // downscale frames; full 1080p decode saturates phone CPUs
+
+  let activeCleanup = null;       // lets route changes force-close the scanner
 
   function parseStopIdFromText(text) {
     // Accept either a raw "#stop/7" / "stop/7" or a full URL containing one
@@ -34,22 +38,18 @@
     return overlay;
   }
 
-  function showError(overlay, msg) {
-    const label = overlay.querySelector(".scan-label");
-    if (label) label.textContent = msg;
-    overlay.classList.add("error");
-  }
-
   async function openQrScanner(expectedStopId, opts) {
     opts = opts || {};
     const onSuccess = opts.onSuccess || function () {};
     const onCancel  = opts.onCancel  || function () {};
 
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || typeof jsQR !== "function") {
-      // No camera support — fall back: simulated scan flow handled by caller
       opts.onUnsupported && opts.onUnsupported();
       return;
     }
+
+    // Only one scanner at a time.
+    if (activeCleanup) activeCleanup();
 
     const overlay = makeOverlay();
     const video = overlay.querySelector(".scan-video");
@@ -65,8 +65,11 @@
       cancelled = true;
       if (scanTimer) clearInterval(scanTimer);
       if (stream) stream.getTracks().forEach(t => t.stop());
+      stream = null;
       overlay.remove();
+      if (activeCleanup === cleanup) activeCleanup = null;
     }
+    activeCleanup = cleanup;
 
     cancelBtn.addEventListener("click", () => {
       cleanup();
@@ -74,20 +77,24 @@
     });
 
     try {
-      stream = await navigator.mediaDevices.getUserMedia({
+      const pending = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: { ideal: "environment" } },
         audio: false
       });
+      // If the user hit Cancel (or navigated away) while the permission
+      // prompt was open, stop the tracks immediately — otherwise the
+      // camera light stays on with nobody watching.
+      if (cancelled) {
+        pending.getTracks().forEach(t => t.stop());
+        return;
+      }
+      stream = pending;
       video.srcObject = stream;
       await video.play();
     } catch (err) {
       console.warn("Camera unavailable:", err);
-      showError(overlay, "Camera blocked. Tap Cancel to go back.");
-      // Still allow cancel; caller may want to surface fallback
-      if (opts.onUnsupported) {
-        cleanup();
-        opts.onUnsupported();
-      }
+      cleanup();
+      opts.onUnsupported && opts.onUnsupported();
       return;
     }
 
@@ -95,16 +102,21 @@
       if (cancelled) return;
       if (video.readyState !== video.HAVE_ENOUGH_DATA) return;
 
-      canvas.width  = video.videoWidth;
-      canvas.height = video.videoHeight;
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      // Downscale the frame before decoding — accuracy holds, CPU drops ~4-8x.
+      const scale = Math.min(1, DECODE_MAX_WIDTH / (video.videoWidth || DECODE_MAX_WIDTH));
+      const w = Math.max(1, Math.round(video.videoWidth * scale));
+      const h = Math.max(1, Math.round(video.videoHeight * scale));
+      if (canvas.width !== w || canvas.height !== h) {
+        canvas.width = w;
+        canvas.height = h;
+      }
+      ctx.drawImage(video, 0, 0, w, h);
+      const img = ctx.getImageData(0, 0, w, h);
       const code = jsQR(img.data, img.width, img.height, { inversionAttempts: "dontInvert" });
       if (!code) return;
 
       const scannedId = parseStopIdFromText(code.data);
       if (!scannedId) {
-        // It was a QR but not one of ours
         const label = overlay.querySelector(".scan-label");
         if (label) label.textContent = "That's not a Sage QR";
         return;
@@ -114,7 +126,8 @@
       overlay.classList.add("found");
       const label = overlay.querySelector(".scan-label");
       if (label) label.textContent = "Got it!";
-      // Brief flash, then close
+      clearInterval(scanTimer);
+      scanTimer = null;
       setTimeout(() => {
         cleanup();
         onSuccess(scannedId, expectedStopId != null && String(scannedId) === String(expectedStopId));
@@ -122,5 +135,16 @@
     }, SCAN_INTERVAL_MS);
   }
 
+  function closeQrScanner() {
+    if (activeCleanup) activeCleanup();
+  }
+
+  // Belt and braces: never leave the camera running when the page hides.
+  window.addEventListener("pagehide", closeQrScanner);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") closeQrScanner();
+  });
+
   window.openQrScanner = openQrScanner;
+  window.closeQrScanner = closeQrScanner;
 })();

@@ -1,8 +1,16 @@
 // Service worker for Ranger Sage's Treasure Hunt.
-// Strategy: network-first within scope, fall back to cache if offline.
-// On install, pre-cache the shell so first offline visit works.
+//
+// Two caches, two strategies:
+//  - SHELL (HTML/JS/CSS/images/fonts): stale-while-revalidate. The cached copy
+//    is served instantly (no hanging on one bar of LTE) and a background fetch
+//    refreshes it for next time. Deploys propagate on the *next* load.
+//  - AUDIO (narration MP3s): cache-first, stored as full responses. Media
+//    elements request byte ranges; we answer Range requests by slicing the
+//    cached full body, because the Cache API cannot store 206 responses.
 
-const CACHE_VERSION = "sage-v3";
+const SHELL_CACHE = "sage-shell-v4";
+const AUDIO_CACHE = "sage-audio-v1";
+
 const SHELL = [
   "./",
   "./index.html",
@@ -14,6 +22,15 @@ const SHELL = [
   "./qrcode-generator.js",
   "./print-qr.html",
   "./manifest.webmanifest",
+  "./fonts/fonts.css",
+  "./fonts/fredoka-500.woff2",
+  "./fonts/fredoka-600.woff2",
+  "./fonts/fredoka-700.woff2",
+  "./fonts/nunito-400.woff2",
+  "./fonts/nunito-600.woff2",
+  "./fonts/nunito-700.woff2",
+  "./fonts/nunito-800.woff2",
+  "./fonts/patrickhand-400.woff2",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
   "./icons/apple-touch-icon.png",
@@ -31,17 +48,19 @@ const SHELL = [
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_VERSION)
+    caches.open(SHELL_CACHE)
       .then(cache => cache.addAll(SHELL))
       .then(() => self.skipWaiting())
-      .catch(() => self.skipWaiting())
+      // If precache fails (e.g. mid-deploy 404), let install fail so the
+      // browser retries on the next visit instead of running half-cached.
   );
 });
 
 self.addEventListener("activate", (event) => {
+  const keep = new Set([SHELL_CACHE, AUDIO_CACHE]);
   event.waitUntil(
     caches.keys()
-      .then(keys => Promise.all(keys.filter(k => k !== CACHE_VERSION).map(k => caches.delete(k))))
+      .then(keys => Promise.all(keys.filter(k => !keep.has(k)).map(k => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
@@ -51,23 +70,85 @@ self.addEventListener("fetch", (event) => {
   if (req.method !== "GET") return;
 
   const url = new URL(req.url);
-  if (url.origin !== self.location.origin) return; // Don't intercept cross-origin (fonts, etc)
+  if (url.origin !== self.location.origin) return;
 
-  // Network-first: try the live response, fall back to cache when offline.
-  // ignoreSearch so cached "app.js" matches "app.js?v=12345".
-  event.respondWith(
-    fetch(req).then(resp => {
-      if (resp.ok) {
-        const copy = resp.clone();
-        // Cache under the URL stripped of any ?v= query for stable lookup.
-        const stripped = new Request(url.origin + url.pathname);
-        caches.open(CACHE_VERSION).then(c => c.put(stripped, copy)).catch(() => {});
-      }
-      return resp;
-    }).catch(() =>
-      caches.match(req, { ignoreSearch: true }).then(c =>
-        c || (req.mode === "navigate" ? caches.match("./index.html") : Response.error())
-      )
-    )
-  );
+  if (url.pathname.includes("/audio/")) {
+    event.respondWith(serveAudio(req, url));
+  } else {
+    event.respondWith(staleWhileRevalidate(req, url));
+  }
 });
+
+async function staleWhileRevalidate(req, url) {
+  const cache = await caches.open(SHELL_CACHE);
+  const stripped = url.origin + url.pathname; // "app.js?v=x" caches as "app.js"
+  const cached = await cache.match(stripped);
+
+  // "no-cache" makes the refresh revalidate with the server instead of
+  // silently re-reading the browser's own HTTP cache (which can be stale).
+  const network = fetch(req.url, { cache: "no-cache" }).then(resp => {
+    if (resp && resp.ok && resp.status === 200) {
+      cache.put(stripped, resp.clone()).catch(() => {});
+    }
+    return resp;
+  }).catch(() => null);
+
+  if (cached) return cached;
+
+  const resp = await network;
+  if (resp) return resp;
+  if (req.mode === "navigate") {
+    const shell = await cache.match(url.origin + "/index.html") || await cache.match("./index.html");
+    if (shell) return shell;
+  }
+  return Response.error();
+}
+
+async function serveAudio(req, url) {
+  const cache = await caches.open(AUDIO_CACHE);
+  const key = url.origin + url.pathname;
+  let full = await cache.match(key);
+
+  if (!full) {
+    // Fetch the WHOLE file (no Range header) so the Cache API accepts it.
+    let resp;
+    try {
+      resp = await fetch(key);
+    } catch (e) {
+      return Response.error();
+    }
+    if (!resp.ok || resp.status !== 200) return resp;
+    await cache.put(key, resp.clone()).catch(() => {});
+    full = resp;
+  }
+
+  const range = req.headers.get("range");
+  if (!range) return full.clone ? full.clone() : full;
+
+  const buf = await full.clone().arrayBuffer();
+  const m = /bytes=(\d+)-(\d*)/.exec(range);
+  if (!m) return new Response(buf, { status: 200, headers: baseAudioHeaders(buf.byteLength) });
+  const start = Number(m[1]);
+  const end = m[2] ? Math.min(Number(m[2]), buf.byteLength - 1) : buf.byteLength - 1;
+  if (start >= buf.byteLength) {
+    return new Response(null, {
+      status: 416,
+      headers: { "Content-Range": `bytes */${buf.byteLength}` }
+    });
+  }
+  return new Response(buf.slice(start, end + 1), {
+    status: 206,
+    headers: {
+      ...baseAudioHeaders(end - start + 1),
+      "Content-Range": `bytes ${start}-${end}/${buf.byteLength}`
+    }
+  });
+}
+
+function baseAudioHeaders(len) {
+  return {
+    "Content-Type": "audio/mpeg",
+    "Content-Length": String(len),
+    "Accept-Ranges": "bytes"
+  };
+}
