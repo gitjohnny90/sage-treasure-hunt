@@ -184,7 +184,12 @@ const OUTDOOR_STOPS = [
     sageIntro: "Where the real muscle is: the crew that keeps camp running.",
     transcript: "The maintenance building contains offices for our facility support staff. It is a large building with different areas and shops — maintenance, auto, carpentry, and paint — plus storage for grounds and recreation equipment, ladders, and just about any tool you can think of. The facility support department is in charge of all aspects of keeping the camp running mechanically sound: repairing logs, fixing the heating and air, plumbing, electrical, or any other repair that might come up. Facility support also handles pest control for the camp. We've found that cats work great for keeping the mice and other rodent populations down, so we use the maintenance building as a place to raise up kittens into ferocious barn cats — mousers.",
     clue: "Spot the silver dump truck somewhere nearby!",
-    clueSticker: "silver-dump-truck"
+    clueSticker: "silver-dump-truck",
+    stickerHunt: {
+      scriptureRef: "II Kings 3:16-17",
+      scriptureText: "And he said, Thus saith the LORD, Make this valley full of ditches. For thus saith the LORD, Ye shall not see wind, neither shall ye see rain; yet that valley shall be filled with water, that ye may drink, both ye, and your cattle, and your beasts.",
+      obviousHint: "Walk around to the back side of the Maintenance Building — the clear sticker box is next to the little irrigation ditch."
+    }
   },
   {
     id: 16, num: 16,

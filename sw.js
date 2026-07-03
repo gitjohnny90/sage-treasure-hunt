@@ -75,11 +75,11 @@ self.addEventListener("fetch", (event) => {
   if (url.pathname.includes("/audio/")) {
     event.respondWith(serveAudio(req, url));
   } else {
-    event.respondWith(staleWhileRevalidate(req, url));
+    event.respondWith(staleWhileRevalidate(event, req, url));
   }
 });
 
-async function staleWhileRevalidate(req, url) {
+async function staleWhileRevalidate(event, req, url) {
   const cache = await caches.open(SHELL_CACHE);
   const stripped = url.origin + url.pathname; // "app.js?v=x" caches as "app.js"
   const cached = await cache.match(stripped);
@@ -88,10 +88,15 @@ async function staleWhileRevalidate(req, url) {
   // silently re-reading the browser's own HTTP cache (which can be stale).
   const network = fetch(req.url, { cache: "no-cache" }).then(resp => {
     if (resp && resp.ok && resp.status === 200) {
-      cache.put(stripped, resp.clone()).catch(() => {});
+      return cache.put(stripped, resp.clone()).catch(() => {}).then(() => resp);
     }
     return resp;
   }).catch(() => null);
+
+  // Keep the worker alive until the background refresh lands — without this
+  // the browser may kill the SW right after the cached response is returned,
+  // and deploys would propagate only sometimes.
+  event.waitUntil(network);
 
   if (cached) return cached;
 

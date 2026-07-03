@@ -687,12 +687,33 @@ function renderStop(id) {
         <p>${escapeHtml(stop.transcript)}</p>
       </div>
 
+      ${stop.stickerHunt ? `
+      <div class="clue-card">
+        <div class="clue-tape"></div>
+        <div class="clue-eyebrow">🔍 Sticker Hunt</div>
+        <p class="clue-text">Hidden near this stop is a small clear box with your sticker inside.
+          Sage's first hint is a verse — figure out what it's pointing to!</p>
+        <button class="btn btn-secondary hint-btn" id="hint1-btn" onclick="revealHint(1)">
+          Hint 1: A verse to ponder
+        </button>
+        <div id="hint1-body" hidden>
+          <blockquote class="hint-scripture">
+            ${escapeHtml(stop.stickerHunt.scriptureText)}
+            <cite>&mdash; ${escapeHtml(stop.stickerHunt.scriptureRef)}</cite>
+          </blockquote>
+          <button class="btn btn-secondary hint-btn" id="hint2-btn" onclick="revealHint(2)">
+            Still hunting? Hint 2
+          </button>
+          <p class="hint-obvious" id="hint2-body" hidden>${escapeHtml(stop.stickerHunt.obviousHint)}</p>
+        </div>
+        ${stickerHtml}
+      </div>` : `
       <div class="clue-card">
         <div class="clue-tape"></div>
         <div class="clue-eyebrow">🔍 Bonus Hunt</div>
         <p class="clue-text">${escapeHtml(stop.clue)}</p>
         ${stickerHtml}
-      </div>
+      </div>`}
 
       <img class="sage-stop" src="${POSE_IMAGES[stop.pose] || POSE_IMAGES["pointing"]}" alt="">
     </section>
@@ -923,6 +944,14 @@ async function updateDownloadButton() {
       if (status) status.textContent = "Sage's stories are saved on this phone — the hunt works offline.";
     }
   } catch (e) { /* leave the button visible */ }
+}
+
+/* Sticker-hunt hints: reveal one tier at a time. */
+function revealHint(n) {
+  const btn = document.getElementById(`hint${n}-btn`);
+  const body = document.getElementById(`hint${n}-body`);
+  if (btn) btn.hidden = true;
+  if (body) body.hidden = false;
 }
 
 /* ============================================================
